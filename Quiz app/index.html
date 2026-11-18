@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz App</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Home Screen -->
+        <div id="homeScreen" class="screen">
+            <h1>Quiz App</h1>
+            <p class="subtitle">Create and take quizzes with ease</p>
+            
+            <div class="quick-actions">
+                <button onclick="goToCreateQuiz()" class="btn btn-primary btn-large">+ Create New Quiz</button>
+                <button onclick="goToQuizList()" class="btn btn-secondary btn-large">Take a Quiz</button>
+                <button onclick="showAllStats()" class="btn btn-info btn-large">📊 View All Statistics</button>
+            </div>
+
+            <hr class="divider">
+
+            <div class="data-section">
+                <h3>Quiz Data Management</h3>
+                <p class="section-desc">Save and load your quizzes using JSON files</p>
+                
+                <div class="data-actions">
+                    <button onclick="openExportModal()" class="btn btn-info">📥 Export Quizzes</button>
+                    <button onclick="document.getElementById('importFile').click()" class="btn btn-info">📤 Import Quizzes (JSON/Excel)</button>
+                    <button onclick="showFormatGuide()" class="btn btn-info">📋 Format Guide</button>
+                    <input type="file" id="importFile" accept=".json,.xlsx,.xls" style="display: none;" onchange="importQuizzes(event)">
+                </div>
+                
+                <div class="info-box">
+                    <strong>ℹ️ Info:</strong>
+                    <ul>
+                        <li>📄 Supported formats: <strong>.json</strong> and <strong>.xlsx (Excel)</strong></li>
+                        <li>📥 Export in JSON or Excel format for easy sharing</li>
+                        <li>📤 Import from either JSON or Excel files</li>
+                        <li>🔄 Import allows you to merge or replace existing quizzes</li>
+                        <li>💾 Keep backups of your quiz files in a safe location</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Create Quiz Screen -->
+        <div id="createQuizScreen" class="screen hidden">
+            <h2>Create a New Quiz</h2>
+            <form id="quizForm">
+                <div class="form-group">
+                    <label for="quizTitle">Quiz Title:</label>
+                    <input type="text" id="quizTitle" required placeholder="Enter quiz title">
+                </div>
+                <div class="form-group">
+                    <label for="quizDescription">Description:</label>
+                    <textarea id="quizDescription" placeholder="Enter quiz description"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="quizTimer">Time Limit (minutes):</label>
+                    <input type="number" id="quizTimer" min="0" value="0" placeholder="0 = Unlimited time">
+                </div>
+            </form>
+
+            <div id="questionsContainer"></div>
+
+            <div id="addQuestionContainer" class="add-question-container">
+                <button type="button" onclick="addQuestion()" class="btn btn-secondary btn-block">+ Add Another Question</button>
+            </div>
+
+            <div class="button-group">
+                <button onclick="saveQuiz()" class="btn btn-primary">Save Quiz</button>
+                <button onclick="goHome()" class="btn btn-secondary">Cancel</button>
+            </div>
+        </div>
+
+        <!-- Quiz List Screen -->
+        <div id="quizListScreen" class="screen hidden">
+            <h2>Available Quizzes</h2>
+            
+            <div class="search-container">
+                <input type="text" id="searchInput" placeholder="🔍 Search quizzes by title..." onkeyup="searchQuizzes()">
+            </div>
+            
+            <div id="quizListContainer"></div>
+            
+            <div class="button-group">
+                <button onclick="goHome()" class="btn btn-secondary">← Back to Home</button>
+                <button onclick="openExportModal()" class="btn btn-info">📥 Export All</button>
+            </div>
+        </div>
+
+        <!-- Take Quiz Screen -->
+        <div id="takeQuizScreen" class="screen hidden">
+            <div class="quiz-header-with-timer">
+                <h2 id="quizTitleDisplay"></h2>
+                <div id="timerDisplay" class="timer-box" style="display: none;">
+                    <span id="timerText" class="timer-text">Time Left: </span>
+                    <span id="timerValue" class="timer-value">0:00</span>
+                </div>
+            </div>
+            <div id="quizContent"></div>
+            <div class="button-group">
+                <button onclick="submitQuiz()" class="btn btn-primary">Submit Quiz</button>
+                <button onclick="goToQuizList()" class="btn btn-secondary">Back</button>
+            </div>
+        </div>
+
+        <!-- Results Screen -->
+        <div id="resultsScreen" class="screen hidden">
+            <h2>Quiz Results</h2>
+            <div id="resultsContent"></div>
+            <button onclick="viewQuizStats(currentQuiz.id)" class="btn btn-info">📊 View Statistics</button>
+            <button onclick="goToQuizList()" class="btn btn-primary">Take Another Quiz</button>
+            <button onclick="goHome()" class="btn btn-secondary">Home</button>
+        </div>
+
+        <!-- Edit Quiz Screen -->
+        <div id="editQuizScreen" class="screen hidden">
+            <h2>Edit Quiz</h2>
+            <form id="editQuizForm">
+                <div class="form-group">
+                    <label for="editQuizTitle">Quiz Title:</label>
+                    <input type="text" id="editQuizTitle" required placeholder="Enter quiz title">
+                </div>
+                <div class="form-group">
+                    <label for="editQuizDescription">Description:</label>
+                    <textarea id="editQuizDescription" placeholder="Enter quiz description"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="editQuizTimer">Time Limit (minutes):</label>
+                    <input type="number" id="editQuizTimer" min="0" value="0" placeholder="0 = Unlimited time">
+                </div>
+            </form>
+
+            <div id="editQuestionsContainer"></div>
+
+            <div id="editAddQuestionContainer" class="add-question-container">
+                <button type="button" onclick="addQuestionToEdit()" class="btn btn-secondary btn-block">+ Add Another Question</button>
+            </div>
+
+            <div class="button-group">
+                <button onclick="saveEditedQuiz()" class="btn btn-primary">Save Changes</button>
+                <button onclick="goToQuizList()" class="btn btn-secondary">Cancel</button>
+            </div>
+        </div>
+
+        <!-- Statistics Screen -->
+        <div id="statsScreen" class="screen hidden">
+            <h2>Quiz Statistics</h2>
+            <div id="statsContent"></div>
+            <div class="button-group">
+                <button onclick="goToQuizList()" class="btn btn-primary">Back to Quizzes</button>
+                <button onclick="goHome()" class="btn btn-secondary">Home</button>
+            </div>
+        </div>
+
+        <!-- All Statistics Screen -->
+        <div id="allStatsScreen" class="screen hidden">
+            <h2>📊 All Quizzes Statistics</h2>
+            <div id="allStatsContent"></div>
+            <div class="button-group">
+                <button onclick="goHome()" class="btn btn-primary">← Back to Home</button>
+            </div>
+        </div>
+
+        <!-- Format Guide Screen -->
+        <div id="formatGuideScreen" class="screen hidden">
+            <h2>📋 Format Guide</h2>
+            <p class="guide-intro">Learn how to structure your quiz files for import</p>
+
+            <div class="tabs">
+                <button class="tab-btn active" onclick="switchTab('json-tab')">📄 JSON Format</button>
+                <button class="tab-btn" onclick="switchTab('excel-tab')">📊 Excel Format</button>
+            </div>
+
+            <!-- JSON Tab -->
+            <div id="json-tab" class="tab-content active">
+                <div class="format-box">
+                    <h3>JSON Format Structure</h3>
+                    <p class="format-desc">JSON files must contain an array of quiz objects. Here's an example:</p>
+                    
+                    <div class="code-block">
+                        <pre>[
+  {
+    "id": 1629000000000,
+    "title": "Math Basics",
+    "description": "Test your math knowledge",
+    "createdAt": "8/16/2026",
+    "questions": [
+      {
+        "text": "What is 2 + 2?",
+        "options": [
+          "3",
+          "4",
+          "5",
+          "6"
+        ],
+        "correctAnswer": 1
+      },
+      {
+        "text": "What is 5 × 3?",
+        "options": [
+          "10",
+          "15",
+          "20",
+          "25"
+        ],
+        "correctAnswer": 1
+      }
+    ]
+  }
+]</pre>
+                    </div>
+
+                    <div class="format-rules">
+                        <h4>📌 Important Rules:</h4>
+                        <ul>
+                            <li><strong>id:</strong> Unique number (use timestamp or any large number)</li>
+                            <li><strong>title:</strong> Quiz name (required, string)</li>
+                            <li><strong>description:</strong> Optional quiz description</li>
+                            <li><strong>createdAt:</strong> Creation date (format: M/D/YYYY)</li>
+                            <li><strong>questions:</strong> Array of question objects</li>
+                            <li><strong>text:</strong> Question text (required)</li>
+                            <li><strong>options:</strong> Array of answer options (minimum 2)</li>
+                            <li><strong>correctAnswer:</strong> Index of correct option (0-based, so 0 = first option, 1 = second, etc.)</li>
+                        </ul>
+                    </div>
+
+                    <div class="format-example">
+                        <h4>✅ Example Breakdown:</h4>
+                        <p>In the example above:</p>
+                        <ul>
+                            <li>First question "What is 2 + 2?" has 4 options</li>
+                            <li>The correct answer is at index <strong>1</strong> (which is "4")</li>
+                            <li>Second question correct answer is also index <strong>1</strong> (which is "15")</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Excel Tab -->
+            <div id="excel-tab" class="tab-content">
+                <div class="format-box">
+                    <h3>Excel Format Structure</h3>
+                    <p class="format-desc">Each quiz should be in a separate sheet. Here's the column layout:</p>
+
+                    <div class="table-container">
+                        <table class="format-table">
+                            <thead>
+                                <tr>
+                                    <th>Row</th>
+                                    <th>Column A</th>
+                                    <th>Column B</th>
+                                    <th>Purpose</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>1</td>
+                                    <td>Quiz Title:</td>
+                                    <td>My Quiz Name</td>
+                                    <td>Header</td>
+                                </tr>
+                                <tr>
+                                    <td>2</td>
+                                    <td>Description:</td>
+                                    <td>Quiz description text</td>
+                                    <td>Header</td>
+                                </tr>
+                                <tr>
+                                    <td>3</td>
+                                    <td>Created:</td>
+                                    <td>8/16/2026</td>
+                                    <td>Header</td>
+                                </tr>
+                                <tr class="empty-row">
+                                    <td>4</td>
+                                    <td colspan="2">Empty row</td>
+                                    <td>Separator</td>
+                                </tr>
+                                <tr class="header-row">
+                                    <td>5</td>
+                                    <td>Question #</td>
+                                    <td>Question Text</td>
+                                    <td colspan="2">Option 1, 2, 3, 4... | Correct Answer</td>
+                                </tr>
+                                <tr>
+                                    <td>6+</td>
+                                    <td>1, 2, 3...</td>
+                                    <td>Your question text</td>
+                                    <td>Option text | Correct option text</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="excel-example">
+                        <h4>📋 Excel Sheet Example:</h4>
+                        <div class="code-block">
+                            <pre>Quiz Title:    | General Knowledge
+Description:   | Test your knowledge
+Created:       | 8/16/2026
+               |
+Question #     | Question Text              | Option 1    | Option 2 | Option 3    | Option 4   | Correct Answer
+1              | What is the capital of...  | London      | Paris    | Berlin      | Madrid     | Paris
+2              | Which planet is largest?   | Jupiter     | Saturn   | Neptune     | Venus      | Jupiter
+3              | Who wrote Romeo & Juliet?  | Shakespeare | Marlowe  | Jonson      | Fletcher   | Shakespeare</pre>
+                        </div>
+                    </div>
+
+                    <div class="format-rules">
+                        <h4>📌 Excel Format Rules:</h4>
+                        <ul>
+                            <li><strong>Row 1:</strong> "Quiz Title:" in A1, your title in B1</li>
+                            <li><strong>Row 2:</strong> "Description:" in A2, description in B2</li>
+                            <li><strong>Row 3:</strong> "Created:" in A3, date in B3</li>
+                            <li><strong>Row 4:</strong> Leave empty (separator)</li>
+                            <li><strong>Row 5:</strong> Column headers (starts with "Question #")</li>
+                            <li><strong>Row 6+:</strong> Your questions and options</li>
+                            <li><strong>Options:</strong> Columns C onwards (up to 10+ options per question)</li>
+                            <li><strong>Correct Answer:</strong> Last column - must match one of the option texts exactly</li>
+                            <li><strong>Sheet Name:</strong> Will be used as quiz title if not specified in header</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="button-group">
+                <button onclick="goHome()" class="btn btn-primary">← Back to Home</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export Modal -->
+    <div id="exportModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Export Quizzes</h3>
+                <button onclick="closeExportModal()" class="close-btn">&times;</button>
+            </div>
+            
+            <div class="modal-body">
+                <p class="modal-desc">Choose what and how you want to export</p>
+                
+                <div class="modal-section">
+                    <h4 class="section-title">Export Format</h4>
+                    <div class="export-options">
+                        <label class="option-radio">
+                            <input type="radio" name="exportFormat" value="json" checked>
+                            <span class="option-text">📄 JSON Format</span>
+                        </label>
+                        
+                        <label class="option-radio">
+                            <input type="radio" name="exportFormat" value="excel">
+                            <span class="option-text">📊 Excel Format (.xlsx)</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="modal-section">
+                    <h4 class="section-title">Export Scope</h4>
+                    <div class="export-options">
+                        <label class="option-radio">
+                            <input type="radio" name="exportType" value="all" checked onchange="updateExportView()">
+                            <span class="option-text">📦 Export All Quizzes</span>
+                        </label>
+                        
+                        <label class="option-radio">
+                            <input type="radio" name="exportType" value="selected" onchange="updateExportView()">
+                            <span class="option-text">✅ Export Selected Quizzes</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div id="selectedQuizzesContainer" style="display: none;">
+                    <div class="quiz-selection">
+                        <label class="select-all-label">
+                            <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll()">
+                            <span>Select All</span>
+                        </label>
+                        <div id="quizCheckboxes" class="quiz-checkboxes"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="modal-footer">
+                <button onclick="performExport()" class="btn btn-primary">📥 Export</button>
+                <button onclick="closeExportModal()" class="btn btn-secondary">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
